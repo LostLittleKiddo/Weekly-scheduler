@@ -1,0 +1,18 @@
+task_name,time_requirement,constraint
+Task 1,1,after 10
+Task 2,8,after 43
+Task 3,4,None
+Task 4,6,after 47
+Task 5,6,before 3
+Task 6,8,after 9
+Task 7,8,None
+Task 8,5,None
+Task 9,4,None
+Task 10,1,before 8
+Task 11,1,None
+Task 12,1,None
+Task 13,8,after 16
+Task 14,8,after 46
+Task 15,6,after 35
+Task 16,3,None
+Task 17,6,before 14
