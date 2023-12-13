@@ -1,24 +1,6 @@
 from tabulate import tabulate
 import csv
 
-
-def import_data_from_csv(csv_file):
-    # This function reads a CSV file and converts it into a dictionary.
-    # Each row in the CSV file represents a task, with columns for the task name, time requirement, constraint type, and constraint task number.
-    # The function returns a dictionary where each key is a task name and each value is another dictionary with keys for the time requirement, constraint type, and constraint task number.
-    data_dict = {}
-
-    with open(csv_file, 'r') as file:
-        csv_reader = csv.DictReader(file)
-        for row in csv_reader:
-            task_name = row['task_name']
-            time_requirement = int(row['time_requirement'])
-            constraint_type = row['constraint_type']
-            constraint_task_num = int(row['constraint_task_num']) if row['constraint_task_num'] else None
-            data_dict[task_name] = {'time_requirement': time_requirement, 'constraint_type': constraint_type, 'constraint_task_num': constraint_task_num}
-
-    return data_dict
-
 class Task:
     # The Task class represents a task. Each task has a name, a time requirement, and optionally a constraint type and a constraint task number.
     def __init__(self, name, time_requirement, constraint_type=None, constraint_task_num=None):
@@ -71,7 +53,11 @@ class AC3:
 
     def run(self):
         # The run method initializes a queue with all pairs of different tasks. Then it enters a loop that continues until the queue is empty. In each iteration, it removes a pair of tasks from the queue and revises the domain of the first task. If the domain of the first task becomes empty, it returns False. If the domain of the first task is revised, it adds all pairs of the first task and other tasks to the queue. If the queue becomes empty, it returns True.
-        queue = [(task1, task2) for task1 in self.tasks for task2 in self.tasks if task1 != task2]
+        queue = []
+        for task1 in self.tasks:
+            for task2 in self.tasks:
+                if task1 != task2:
+                    queue.append((task1, task2))
         while queue:
             task1, task2 = queue.pop(0)
             if self.revise(task1, task2):
@@ -83,12 +69,20 @@ class AC3:
         return True
 
     def revise(self, task1, task2):
-        # The revise method checks each value in the domain of the first task. If the value doesn't satisfy any constraint with any value in the domain of the second task, it removes the value from the domain of the first task. It returns True if the domain of the first task is revised, and False otherwise.
+    # The revise method checks each value in the domain of the first task. If the value doesn't satisfy any constraint with any value in the domain of the second task, it removes the value from the domain of the first task. It returns True if the domain of the first task is revised, and False otherwise.
         revised = False
+
+        # Iterate over each value in the domain of task1
         for value in task1.domain:
-            if not any(self.satisfies(task1, value, task2, value2) for value2 in task2.domain):
+            # Check if there is any value in the domain of task2 that satisfies the constraint
+            satisfying_value_found = any(self.satisfies(task1, value, task2, value2) for value2 in task2.domain)
+
+            # If no satisfying value is found, remove the current value from the domain of task1
+            if not satisfying_value_found:
                 task1.domain.remove(value)
                 revised = True
+
+        # Return True if the domain of task1 is revised, and False otherwise
         return revised
 
     def satisfies(self, task1, value1, task2, value2):
@@ -118,7 +112,18 @@ class Week:
 
     def is_full(self):
         # The is_full method checks if all time slots of all days are filled.
-        return all(slot is not None for day in self.week for slot in day)
+        
+        # Iterate over each day in the week
+        for day in self.week:
+            # Iterate over each slot in the current day
+            for slot in day:
+                # Check if the current slot is not None (i.e., filled)
+                if slot is None:
+                    # If any slot is not filled, return False
+                    return False
+
+        # If all slots are filled, return True
+        return True
     
     def can_add_task(self, day, time, task):
         # Check if the task fits in the remaining time slots of the day
@@ -165,13 +170,53 @@ class Week:
         headers = [" "] + days_of_week
         print(tabulate(print_list, headers=headers, tablefmt="grid"))
 
+def import_data_from_csv(csv_file):
+    # This function reads a CSV file and converts it into a dictionary.
+    # Each row in the CSV file represents a task, with columns for the task name, time requirement, constraint type, and constraint task number.
+    # The function returns a dictionary where each key is a task name and each value is another dictionary with keys for the time requirement, constraint type, and constraint task number.
+    data_dict = {}
+
+    with open(csv_file, 'r') as file:
+        csv_reader = csv.DictReader(file)
+        for row in csv_reader:
+            task_name = row['task_name']
+            time_requirement = int(row['time_requirement'])
+            constraint_type = row['constraint_type']
+            constraint_task_num = int(row['constraint_task_num']) if row['constraint_task_num'] else None
+            data_dict[task_name] = {'time_requirement': time_requirement, 'constraint_type': constraint_type, 'constraint_task_num': constraint_task_num}
+
+    return data_dict
+
+def make_task(tasks_dict):
+    tasks = []
+
+    for name, info in tasks_dict.items():
+        task = Task(name, **info)
+        tasks.append(task)
+    return tasks
+
+def make_constraint(tasks):
+    constraints = []
+    # Create 'before' constraints
+    for i in range(len(tasks)):
+        for j in range(i + 1, len(tasks)):
+            if tasks[i].constraint_type == 'before' and tasks[i].constraint_task_num == j:
+                constraint = Constraint(tasks[i], tasks[j], 'before')
+                constraints.append(constraint)
+
+    # Create 'after' constraints
+    for i in range(len(tasks)):
+        for j in range(i + 1, len(tasks)):
+            if tasks[i].constraint_type == 'after' and tasks[i].constraint_task_num == j:
+                constraint = Constraint(tasks[i], tasks[j], 'after')
+                constraints.append(constraint)
+    return constraints
 
 if __name__ == "__main__":
     csv_file_path = 'tasks.csv'
     tasks_dict = import_data_from_csv(csv_file_path)
-    tasks = [Task(name, **info) for name, info in tasks_dict.items()]
-    constraints = [Constraint(tasks[i], tasks[j], 'before') for i in range(len(tasks)) for j in range(i+1, len(tasks)) if tasks[i].constraint_type == 'before' and tasks[i].constraint_task_num == j]
-    constraints += [Constraint(tasks[i], tasks[j], 'after') for i in range(len(tasks)) for j in range(i+1, len(tasks)) if tasks[i].constraint_type == 'after' and tasks[i].constraint_task_num == j]
+    tasks = make_task(tasks_dict)
+    constraints = make_constraint(tasks)
     backtracking = Backtracking(tasks, constraints)
     schedule = backtracking.backtrack()
     if schedule is not None:
