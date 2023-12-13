@@ -1,2 +1,2 @@
 # Weekly-scheduler
-The weekly task schedule is automatically automated by the Weekly Scheduler using CSP solvers. 
+In this 12 hrs Daily Late-night Week Scheduler, the system iterating over tasks, days, and time slots to add tasks to the schedule is the scheduling logic. If a task cannot be added, the algorithm returns to the beginning and investigates alternate combinations. The system sets limitations such as time limits for working and a limit on the number of backtracking attempts. The final schedule is produced in tabular style, giving a clear picture of job assignments for the week. If no feasible schedule is discovered, a notification is presented.
