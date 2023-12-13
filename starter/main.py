@@ -2,100 +2,61 @@ from tabulate import tabulate
 import csv
 
 class Task:
-    # The Task class represents a task. Each task has a name, a time requirement, and optionally a constraint type and a constraint task number.
-    def __init__(self, name, time_requirement, constraint_type=None, constraint_task_num=None):
+    """
+        This class represents a task with a name and a time requirement.
+        Each task also has a domain, which is a list of possible time slots for the task.
+    """
+    def __init__(self, name, time_requirement):
         self.name = name
         self.time_requirement = time_requirement
-        self.constraint_type = constraint_type
-        self.constraint_task_num = constraint_task_num
-
-class Constraint:
-    # The Constraint class represents a constraint between two tasks. Each constraint has two tasks and a relation ('before' or 'after').
-    def __init__(self, task1, task2, relation):
-        self.task1 = task1
-        self.task2 = task2
-        self.relation = relation  # 'before' or 'after'
+        self.domain = list(range(24 - time_requirement + 1))  # possible time slots
 
 class Backtracking:
-    # The Backtracking class is used to find a schedule that satisfies all constraints. It has a list of tasks, a list of constraints, a Week object representing the schedule, a set of used tasks, and a counter for the number of attempts to add a task to the schedule.
-    def __init__(self, tasks, constraints):
+    """
+    This class represents a backtracking algorithm for scheduling tasks.
+    It keeps track of the tasks, the schedule, and the sets of used and unused tasks.
+    It also counts the number of attempts to add tasks to the schedule.
+    """
+    def __init__(self, tasks):
         self.tasks = tasks
-        self.constraints = constraints
         self.schedule = Week()
         self.schedule.create_table()
-        self.used = set()  # keep track of which tasks have been added to the schedule
-        self.attempts = 0  # keep track of the number of attempts to add a task to the schedule
+        self.used = set()
+        self.unused = set(tasks)  # keep track of unused tasks
+        self.attempts = 0
+
+    def print_unused_tasks(self):
+        # This function prints the tasks that could not be scheduled due to exceeding the working time limit.
+        if self.unused:
+            print("The following tasks could not be scheduled due to exceeding the working time limit:")
+            for task in self.unused:
+                print(f"Task: {task.name}, Time Requirement: {task.time_requirement}")
+        else:
+            print("All tasks were successfully scheduled.")
 
     def backtrack(self):
+        # This function attempts to find a schedule that fits all tasks.
+        # It uses a backtracking algorithm, which tries to add each task to each time slot of each day.
+        # If a task cannot be added, it backtracks and tries the next task or time slot.
         if self.schedule.is_full() or self.attempts > 1000:  # add a limit to the number of attempts
             return self.schedule
         for task in self.tasks:
             if task in self.used:  # skip tasks that have already been added
                 continue
             for day in range(self.schedule.numday):
-                for time in range(12):  # limit the time to 12 hours
+                for time in task.domain:  # limit the time to task's domain
                     if self.schedule.can_add_task(day, time, task):  # check if the task can be added
                         self.schedule.add_task_to_schedule(day, time, task)
                         self.used.add(task)
+                        self.unused.remove(task)  # remove task from unused set
                         self.attempts += 1
                         result = self.backtrack()
                         if result is not None:
                             return result
                         self.schedule.remove_task_from_schedule(day, time, task)
                         self.used.remove(task)
+                        self.unused.add(task)  # add task back to unused set
         return None
-
-class AC3:
-    # The AC3 class is used to enforce arc consistency. It has a list of tasks and a list of constraints.
-    def __init__(self, tasks, constraints):
-        self.tasks = tasks
-        self.constraints = constraints
-
-    def run(self):
-        # The run method initializes a queue with all pairs of different tasks. Then it enters a loop that continues until the queue is empty. In each iteration, it removes a pair of tasks from the queue and revises the domain of the first task. If the domain of the first task becomes empty, it returns False. If the domain of the first task is revised, it adds all pairs of the first task and other tasks to the queue. If the queue becomes empty, it returns True.
-        queue = []
-        for task1 in self.tasks:
-            for task2 in self.tasks:
-                if task1 != task2:
-                    queue.append((task1, task2))
-        while queue:
-            task1, task2 = queue.pop(0)
-            if self.revise(task1, task2):
-                if not task1.domain:
-                    return False
-                for task3 in self.tasks:
-                    if task3 != task1 and task3 != task2:
-                        queue.append((task3, task1))
-        return True
-
-    def revise(self, task1, task2):
-    # The revise method checks each value in the domain of the first task. If the value doesn't satisfy any constraint with any value in the domain of the second task, it removes the value from the domain of the first task. It returns True if the domain of the first task is revised, and False otherwise.
-        revised = False
-
-        # Iterate over each value in the domain of task1
-        for value in task1.domain:
-            # Check if there is any value in the domain of task2 that satisfies the constraint
-            satisfying_value_found = any(self.satisfies(task1, value, task2, value2) for value2 in task2.domain)
-
-            # If no satisfying value is found, remove the current value from the domain of task1
-            if not satisfying_value_found:
-                task1.domain.remove(value)
-                revised = True
-
-        # Return True if the domain of task1 is revised, and False otherwise
-        return revised
-
-    def satisfies(self, task1, value1, task2, value2):
-        # The satisfies method checks if a value of the first task and a value of the second task satisfy all constraints between the two tasks.
-        for constraint in self.constraints:
-            if constraint.task1 == task1 and constraint.task2 == task2 and constraint.relation == 'before':
-                if value1 >= value2:
-                    return False
-            if constraint.task1 == task1 and constraint.task2 == task2 and constraint.relation == 'after':
-                if value1 <= value2:
-                    return False
-        return True
-
 class Week:
     def __init__(self):
         # The Week class represents a week schedule. It has a number of days and a number of time slots per day, and a list of lists representing the schedule.
@@ -171,9 +132,9 @@ class Week:
         print(tabulate(print_list, headers=headers, tablefmt="grid"))
 
 def import_data_from_csv(csv_file):
-    # This function reads a CSV file and converts it into a dictionary.
-    # Each row in the CSV file represents a task, with columns for the task name, time requirement, constraint type, and constraint task number.
-    # The function returns a dictionary where each key is a task name and each value is another dictionary with keys for the time requirement, constraint type, and constraint task number.
+    # This function imports task data from a CSV file.
+    # It opens the file, reads it line by line using a CSV reader,
+    # and adds each task to a dictionary with the task name as the key and the time requirement as the value.
     data_dict = {}
 
     with open(csv_file, 'r') as file:
@@ -181,13 +142,14 @@ def import_data_from_csv(csv_file):
         for row in csv_reader:
             task_name = row['task_name']
             time_requirement = int(row['time_requirement'])
-            constraint_type = row['constraint_type']
-            constraint_task_num = int(row['constraint_task_num']) if row['constraint_task_num'] else None
-            data_dict[task_name] = {'time_requirement': time_requirement, 'constraint_type': constraint_type, 'constraint_task_num': constraint_task_num}
+            data_dict[task_name] = {'time_requirement': time_requirement}
 
     return data_dict
 
 def make_task(tasks_dict):
+    # This function creates Task objects from a dictionary of tasks.
+    # It iterates over the items in the dictionary, creates a Task object for each one,
+    # and adds the Task object to a list.
     tasks = []
 
     for name, info in tasks_dict.items():
@@ -195,31 +157,18 @@ def make_task(tasks_dict):
         tasks.append(task)
     return tasks
 
-def make_constraint(tasks):
-    constraints = []
-    # Create 'before' constraints
-    for i in range(len(tasks)):
-        for j in range(i + 1, len(tasks)):
-            if tasks[i].constraint_type == 'before' and tasks[i].constraint_task_num == j:
-                constraint = Constraint(tasks[i], tasks[j], 'before')
-                constraints.append(constraint)
-
-    # Create 'after' constraints
-    for i in range(len(tasks)):
-        for j in range(i + 1, len(tasks)):
-            if tasks[i].constraint_type == 'after' and tasks[i].constraint_task_num == j:
-                constraint = Constraint(tasks[i], tasks[j], 'after')
-                constraints.append(constraint)
-    return constraints
-
 if __name__ == "__main__":
+    # This is the main function that is executed when the script is run.
+    # It imports task data from a CSV file, creates Task objects from the data,
+    # creates a Backtracking object with the tasks, and attempts to create a schedule.
+    # If a schedule is found, it prints the schedule.
     csv_file_path = 'tasks.csv'
     tasks_dict = import_data_from_csv(csv_file_path)
     tasks = make_task(tasks_dict)
-    constraints = make_constraint(tasks)
-    backtracking = Backtracking(tasks, constraints)
+    backtracking = Backtracking(tasks)
     schedule = backtracking.backtrack()
     if schedule is not None:
         schedule.print_week()
+        backtracking.print_unused_tasks()
     else:
         print("No solution found.")
