@@ -74,16 +74,11 @@ class Week:
     def is_full(self):
         # The is_full method checks if all time slots of all days are filled.
         
-        # Iterate over each day in the week
         for day in self.week:
-            # Iterate over each slot in the current day
             for slot in day:
-                # Check if the current slot is not None (i.e., filled)
                 if slot is None:
-                    # If any slot is not filled, return False
                     return False
 
-        # If all slots are filled, return True
         return True
     
     def can_add_task(self, day, time, task):
